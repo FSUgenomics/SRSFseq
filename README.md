@@ -1,2 +1,2 @@
-# FDAseq
-Functional Data Analysis for sequencing data
+# SRSFseq
+Square Root Slope Functions shape analysis for sequencing data.
