@@ -1,43 +1,51 @@
                                         # Example analysis pipeline to obtain test statistics
-                                        #and p.values for shape analysis
-                                        #of read density patterns.
+                                        # and p.values for shape analysis
+                                        # of read density patterns.
 
-                                        #Cleaning the environment and setting up working directory:
+                                        # Cleaning the environment and setting up working directory:
 
 rm(list=ls(all=TRUE)); current_wd=getwd(); local_wd=current_wd
 
-                                        #Packages:
+                                        # Loading necessary packages:
 library(data.table) #Fast datasets loading
 library(fdasrvf) #The dynamic time warping functions
 library(parallel) #enables parallelization for linux based machines
                                         #sourcing essential functions
 source("aux_functions.R")
-                                        #loading the GTF file containing exon information
+                                        #loading the GTF file containing exon/region information
 exons<-fread("exons.gtf") 
 in.bam.headers=which(exons$chrom %in% paste("chr", c(1:22, "X", "Y", "M"), sep=""))
 exons=exons[in.bam.headers];  genelist=exons[[1]]
-                                        #Setting minimal number of reads per exon
+                                        #Setting minimal number of reads per exon/region
 read.cutoff=20 
 
 #######################################################################
-                                        # Script  got Obtaining the reads per exon
-                                        #The script focuses on obtaining R objects "all.reads" and "all.counts", using the efficien samtools functions incorporated in R via package Rsamtools.
-                                        #"all.reads" is a list of genes. For each list element corresponding to gene there is another list - list of exons specific for the gene. Each element of this sublist contains the last subsublist correspnding to samples. Each element of subsublist stores read positions mapped to the exon in the selected sample.
+                                        # Script for got Obtaining the reads per exon
+                                        # The script focuses on obtaining R objects "all.reads" and "all.counts", 
+                                        # using the efficient samtools functions incorporated in R via package Rsamtools.
+                                        # "all.reads" is a list of genes. For each list element corresponding to gene 
+                                        # there is another list - list of exons specific for the gene. 
+                                        # Each element of this sublist contains the last subsublist correspnding to samples. 
+                                        # Each element of subsublist stores read positions mapped to the exon 
+                                        # in the selected sample.
                                         #In short:
                                         #list(all.genes)
                                         #-> sublist(exons)
                                         #->->subsublist(samples)
                                         #->->->vector (read positions, e.g. first/last/mid bp)
 
-                                        #samotools accessible from R:
+                                        # samotools accessible from R:
 library(Rsamtools)
-                                        #Path main folder with datasets:
+                                        # Path to main folder with datasets (change to your own):
 bam_wd="~/works/Current/data_Nature_HOAXko/" ;
-                                        #Folder names corresponding to conditions
-                                        #control and HOXA1 KO:
+                                        # Folder names are corresponding to conditions
+                                        # control and HOXA1 KO (change to your own):
 conditions=c("control_A","control_B","control_C", "HOXA1_A", "HOXA1_B", "HOXA1_C" )
 condition.labels<-c(1,1,1,2,2,2) 
-                                        #name of the sorted alignet bam file, outputed by e.g. bowtie or tophat. Note that the scripts assumes that all files in both conditions and all samples are named exactly the same. The files and conditions are distinguished only by the folder name/path:
+                                        # name of the sorted alignet bam file, outputed by e.g. bowtie or tophat. 
+                                        # Note that the scripts assumes that all files in both conditions and 
+                                        # all samples are named exactly the same. The files and conditions are distinguished 
+                                        # only by the folder name/path:
 genericBAMfile="reads.sorted.bam" 
                                         # Filtering reads that map only to known chromosomes
                                         # using Rsamtool
@@ -45,12 +53,14 @@ what <- c("pos","mapq")
 all.counts=list(); all.reads=list() 
 gene.range=c(1:length(genelist)) 
                                         #getting reads mapped to genes. see get.read() function
-  all.reads <- mclapply(gene.range, function(gene) get.reads(gene, output = "reads"), mc.cores = detectCores()-1, mc.preschedule=FALSE)
+  all.reads <- mclapply(gene.range, function(gene) get.reads(gene, output = "reads"), 
+                        mc.cores = detectCores()-1, mc.preschedule=FALSE)
 names(all.reads)=genelist[gene.range]
 
                                         #getting counts of reads mapped to gene using mclapply.
                                         #See the get.reads() function
-all.counts <- mclapply(gene.range, function(gene) get.reads(gene, output = "counts"), mc.cores = detectCores()-1, mc.preschedule=FALSE)
+all.counts <- mclapply(gene.range, function(gene) get.reads(gene, output = "counts"), 
+                       mc.cores = detectCores()-1, mc.preschedule=FALSE)
 names(all.counts)=genelist[gene.range]
 
 
@@ -67,8 +77,13 @@ load("all.counts.Rdata")
 
 #############################################################################
                                         #main analysis for exon and gene level normalization (choose one)
-                                        #The following script assumes that the reads positions per exon for each gene are known and stored in all.reads and all.counts R objects in the following format
-                                        #"all.reads" is a list of genes. For each list element corresponding to gene there is another list - list of exons specific for the gene. Each element of this sublist contains the last subsublist correspnding to samples. Each element of subsublist stores read positions mapped to the exon in the selected sample.
+                                        #The following script assumes that the reads positions per exon for each gene are known
+                                        # and stored in all.reads and all.counts R objects in the following format
+                                        #"all.reads" is a list of genes. 
+                                        # For each list element corresponding to gene there is another list 
+                                        # - list of exons specific for the gene. 
+                                        # Each element of this sublist contains the last subsublist correspnding to samples. 
+                                        # Each element of subsublist stores read positions mapped to the exon in the selected sample.
 
                                         #In short:
                                         #list(all.genes)
@@ -88,7 +103,8 @@ gtf.rows=c(1:length(all.reads))
                                         #1. Exon level analysis
 #----------------------------------------------------------------------------
 print(paste("CALCULATING STATISTICS", Sys.time(), sep=" "))
-stats<-mclapply(gtf.rows, function(i) main.analysis(i, condition.labels) , mc.preschedule = F, mc.cores = detectCores()-1)
+stats<-mclapply(gtf.rows, function(i) main.analysis(i, condition.labels) , 
+                mc.preschedule = F, mc.cores = detectCores()-1)
 names(stats) = genelist[gtf.rows]
 
 print(paste("SAVING RESULTS in ",getwd(),"stats.Rdata | ", Sys.time(), sep=""))
@@ -97,7 +113,8 @@ save(stats, file="stats.Rdata")
 #----------------------------------------------------------------------------
                                         #2. Gene level analysis (whole spliced genes compared)
 print(paste("CALCULATING STATISTICS", Sys.time(), sep=" "))
-stats.genes<-mclapply(gtf.rows, function(i)  main.analysis.gene.level(i, condition.labels), mc.preschedule = F, mc.cores = detectCores()-1)
+stats.genes<-mclapply(gtf.rows, function(i)  main.analysis.gene.level(i, condition.labels),
+                      mc.preschedule = F, mc.cores = detectCores()-1)
 names(stats.genes) = genelist[gtf.rows]
 
 print(paste("SAVING RESULTS in ",getwd(),"stats.genes.Rdata | ", Sys.time(), sep=""))
